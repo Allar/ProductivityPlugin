@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Productivity Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Michael Allar",
+	"CreatedByURL" : "http://michaelallar.com",
+	"EngineVersion" : "4.7.0",
+	"Description" : "Some tools that don't come with UE4",
+	"Category" : "Tools",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "ProductivityPlugin",
+			"Type" : "Developer",
+			"LoadingPhase": "PostEngineInit"
+		}
+	]
+}
