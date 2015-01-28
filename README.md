@@ -9,7 +9,7 @@ This repo is so unstable and nothing here is guaranteed to work, or to be docume
 
 ## 3D Package Scripts
 1. [Batch Placer (Maya 2015 Only For Now)](https://www.youtube.com/watch?v=TcbSW4icYV4)
-  1. Install by running Setup 3D Package Scripts.bat
+  1. Install by running Setup 3D Package Scripts.bat. If Maya is running, restart it.
   2. Shove this code into a Maya shelf button
 
 ```
