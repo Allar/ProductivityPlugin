@@ -92,7 +92,7 @@ void FProductivityPluginModule::StartupModule()
 	
 	{
 		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-		ToolbarExtender->AddToolBarExtension("SourceControl", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddToolbarExtension));
+		ToolbarExtender->AddToolBarExtension("Game", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddToolbarExtension));
 		
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
 	}
@@ -173,7 +173,7 @@ void FProductivityPluginModule::StaticToInstancedClicked()
 		GEditor->GetSelectedActors()->DeselectAll();
 		GEditor->GetSelectedObjects()->DeselectAll();
 		GEditor->SelectNone(true, true, false);
-		GEditor->NoteSelectionChange(true);
+		GEditor->NoteSelectionChange();
 
 		/* Static Mesh to Instanced */
 		TArray<FMeshInfo> MeshInfos;
