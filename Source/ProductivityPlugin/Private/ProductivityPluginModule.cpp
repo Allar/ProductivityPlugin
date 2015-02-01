@@ -1,5 +1,8 @@
 #include "ProductivityPluginModulePCH.h"
 
+#include "ISettingsModule.h"
+#include "ISettingsSection.h"
+
 #include "SlateBasics.h"
 #include "SlateExtras.h"
 
@@ -16,6 +19,32 @@ static const FName ProductivityPluginTabName("ProductivityPlugin");
 
 #define LOCTEXT_NAMESPACE "ProductivityPlugin"
 
+/** Tick Object **/
+FProductivityTickObject::FProductivityTickObject(FProductivityPluginModule *_Owner)
+	: Owner(_Owner)
+{
+}
+
+void FProductivityTickObject::Tick(float DeltaTime)
+{
+	check(Owner != NULL);
+	Owner->Tick(DeltaTime);
+}
+
+TStatId FProductivityTickObject::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FProductivityPluginModule, STATGROUP_Tickables);
+}
+
+/** Module **/
+FProductivityPluginModule::FProductivityPluginModule()
+	: TickObject(nullptr),
+	Listener(nullptr)
+
+{
+	
+}
+
 void FProductivityPluginModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
@@ -27,6 +56,23 @@ void FProductivityPluginModule::StartupModule()
 	FProductivityPluginCommands::BindGlobalStaticToInstancedActions();
 
 #if WITH_EDITOR
+
+	// register settings
+	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+
+	if (SettingsModule != nullptr)
+	{
+		ISettingsSectionPtr SettingsSection = SettingsModule->RegisterSettings("Project", "Plugins", "ProductivityPlugin",
+			LOCTEXT("ProductivitySettingsName", "Productivity Plugin"),
+			LOCTEXT("ProductivitySettingsDescription", "Configure the Productivity Plugin."),
+			GetMutableDefault<UProductivitySettings>()
+			);
+
+		if (SettingsSection.IsValid())
+		{
+			SettingsSection->OnModified().BindRaw(this, &FProductivityPluginModule::HandleSettingsSaved);
+		}
+	}
 	
 	PluginCommands = MakeShareable(new FUICommandList);
 
@@ -51,7 +97,16 @@ void FProductivityPluginModule::StartupModule()
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
 	}
 
+	if (SupportsProductivityServer())
+	{
+		Listener = new FTcpListener(PRODUCTIVITY_SERVER_DEFAULT_EDITOR_ENDPOINT);
+		Listener->OnConnectionAccepted().BindRaw(this, &FProductivityPluginModule::HandleListenerConnectionAccepted);
+
+		TickObject = new FProductivityTickObject(this);
+	}
+
 #endif
+
 }
 
 void FProductivityPluginModule::ShutdownModule()
@@ -62,6 +117,37 @@ void FProductivityPluginModule::ShutdownModule()
 	FProductivityPluginStyle::Shutdown();
 
 	FProductivityPluginCommands::Unregister();
+
+	// unregister settings
+	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+
+	if (SettingsModule != nullptr)
+	{
+		SettingsModule->UnregisterSettings("Project", "Plugins", "ProductivityPlugin");
+	}
+
+	if (Listener)
+	{
+		Listener->Stop();
+		delete Listener;
+		Listener = NULL;
+	}
+
+	if (!PendingClients.IsEmpty())
+	{
+		FSocket *Client = NULL;
+		while (PendingClients.Dequeue(Client))
+		{
+			Client->Close();
+		}
+	}
+	for (TArray<class FSocket*>::TIterator ClientIt(Clients); ClientIt; ++ClientIt)
+	{
+		(*ClientIt)->Close();
+	}
+
+	delete TickObject;
+	TickObject = NULL;
 }
 
 void FProductivityPluginModule::StaticToInstancedClicked()
@@ -254,6 +340,123 @@ void FProductivityPluginModule::AddToolbarExtension(FToolBarBuilder &builder)
 		);
 
 	builder.EndSection();
+}
+
+bool FProductivityPluginModule::SupportsProductivityServer() const
+{
+	// disallow in Shipping and Test configurations
+	if ((FApp::GetBuildConfiguration() == EBuildConfigurations::Shipping) || (FApp::GetBuildConfiguration() == EBuildConfigurations::Test))
+	{
+		return false;
+	}
+
+	// disallow for commandlets
+	if (IsRunningCommandlet())
+	{
+		return false;
+	}
+
+	if (GEngine->IsEditor())
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool FProductivityPluginModule::HandleSettingsSaved()
+{
+	return true;
+}
+
+bool FProductivityPluginModule::HandleListenerConnectionAccepted(class FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint)
+{
+	PendingClients.Enqueue(ClientSocket);
+	return true;
+}
+
+void FProductivityPluginModule::Tick(float DeltaTime)
+{
+#if WITH_EDITOR
+	if (!PendingClients.IsEmpty())
+	{
+		FSocket *Client = NULL;
+		while (PendingClients.Dequeue(Client))
+		{
+			Clients.Add(Client);
+		}
+	}
+
+	// remove closed connections
+	for (int32 ClientIndex = Clients.Num() - 1; ClientIndex >= 0; --ClientIndex)
+	{
+		if (Clients[ClientIndex]->GetConnectionState() != SCS_Connected)
+		{
+			Clients.RemoveAtSwap(ClientIndex);
+		}
+	}
+
+	//poll for data
+	for (TArray<class FSocket*>::TIterator ClientIt(Clients); ClientIt; ++ClientIt)
+	{
+		FSocket *Client = *ClientIt;
+		uint32 DataSize = 0;
+		while (Client->HasPendingData(DataSize))
+		{
+			FArrayReaderPtr Datagram = MakeShareable(new FArrayReader(true));
+			Datagram->Init(FMath::Min(DataSize, 1024u));
+			int32 BytesRead = 0;
+			if (Client->Recv(Datagram->GetData(), Datagram->Num(), BytesRead))
+			{
+				FProductivityNetworkMessage Message;
+				*Datagram << Message;
+
+				ProcessMessage(Message);
+				uint8 ack = 1;
+				int32 sent;
+				Client->Send(&ack, 1, sent);
+			}
+		}
+	}
+#endif
+}
+
+void FProductivityPluginModule::ProcessMessage(const FProductivityNetworkMessage& Message)
+{
+	ProcessAddStaticMesh(Message);
+}
+
+void FProductivityPluginModule::ProcessAddStaticMesh(const FProductivityNetworkMessage& Message)
+{
+	UE_LOG(LogProductivityPlugin, Verbose, TEXT("Recieved Producitivty Message: Static mesh %s"), *Message.Payload.OriginalSceneName);
+
+	const UProductivitySettings* ProductivitySettings = GetDefault<UProductivitySettings>();
+	for (FBatchPlaceMeshInfo BatchMeshInfo : ProductivitySettings->BatchPlaceSettings)
+	{
+		if (Message.Payload.OriginalSceneName.Contains(BatchMeshInfo.ImportNameSubstring) && BatchMeshInfo.MeshInfo.StaticMesh != nullptr)
+		{
+			const FScopedTransaction Transaction(LOCTEXT("BatchPlaceAddMesh", "Added mesh from Batch Placer"));
+
+			FVector Location = FVector(FCString::Atof(*Message.Payload.LocationX), FCString::Atof(*Message.Payload.LocationY), FCString::Atof(*Message.Payload.LocationZ));
+			FVector Scale = FVector(FCString::Atof(*Message.Payload.ScaleX), FCString::Atof(*Message.Payload.ScaleY), FCString::Atof(*Message.Payload.ScaleZ));
+			FRotator Rotation = FRotator::MakeFromEuler(FVector(FCString::Atof(*Message.Payload.RotationX), FCString::Atof(*Message.Payload.RotationY), FCString::Atof(*Message.Payload.RotationZ)));
+			FTransform Transform = FTransform(Rotation, Location, Scale);
+
+			AStaticMeshActor* SMA = Cast<AStaticMeshActor>(GEditor->AddActor(GEditor->LevelViewportClients[0]->GetWorld()->GetLevel(0), AStaticMeshActor::StaticClass(), Transform));
+			SMA->Modify();
+			//@TODO: Figure out why editor is skipping names
+			SMA->SetActorLabel(BatchMeshInfo.ImportNameSubstring);
+			SMA->SetMobility(EComponentMobility::Movable);
+			SMA->GetStaticMeshComponent()->SetStaticMesh(BatchMeshInfo.MeshInfo.StaticMesh);
+			SMA->SetMobility(EComponentMobility::Static);
+
+			for (int i = 0; i < BatchMeshInfo.MeshInfo.Materials.Num(); ++i)
+			{
+				SMA->GetStaticMeshComponent()->SetMaterial(i, BatchMeshInfo.MeshInfo.Materials[i]);
+			}
+			break;
+		}
+	}
 }
 
 DEFINE_LOG_CATEGORY(LogProductivityPlugin)

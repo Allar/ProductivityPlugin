@@ -6,23 +6,18 @@ This repo is so unstable and nothing here is guaranteed to work, or to be docume
 # What's Included?
 ## UE4 Plugin
 1. Static Mesh Actor to Instanced Mesh Collection and vice versa
+2. Ability to recieve batch placements of static meshes from any networked app (i.e. Maya)
+
+## Plugin Installation
+To build this plugin with your copy of UE4, place the repo so that all files are in Engine/Plugins/ProductivityPlugin. You should be able to regenerate your project files and build successfully.
+
+If you aren't going to be building this plugin from source code, download a binary version from the releases page and extract the ProductivityPlugin folder into Engine/Plugins/
+
+After either option above, *it is very important* that you run the "Setup 3D Package Scripts.bat" file in Engine/Plugins/ProductivityPlugin in either case.
 
 ## 3D Package Scripts
-1. [Batch Placer (Maya 2015 Only For Now)](https://www.youtube.com/watch?v=TcbSW4icYV4)
-  1. Install by running Setup 3D Package Scripts.bat. If Maya is running, restart it.
-  2. Shove this code into a Maya shelf button
+To use Productivity Plugin to its max potential, you will need to install these scripts:
 
-```
-import sys
-try:
-    BatchPlacer.show()
-    BatchPlacer.activateWindow()
-    BatchPlacer.raise_()
-except:
-    Dir = os.environ['UE4_PRODUCTIVITY'].replace("\\","/") + "/Maya"
-    if Dir not in sys.path:
-        sys.path.append(Dir)
-    try: reload(BatchPlacer)
-    except: import BatchPlacer
-    BatchPlacer.main()
-```
+### Maya
+  1. Make sure you ran the "Setup 3D Package Scripts.bat" file as mentioned above.
+  2. Shove [this code](Maya/BatchPlacerShelfButton.py) into a Maya shelf button. This button, when clicked, will batch place selected objects into UE4.

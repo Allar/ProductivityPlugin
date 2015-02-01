@@ -1,7 +1,8 @@
 import sys
-try: BatchPlacer.show()
+try:
+    BatchPlacer.batchPlaceSelected()
 except:
-    Dir = 'D:/allarjealdepot/Engine/Extras/ProductivityPlugin/Maya'
+    Dir = os.environ['UE4_PRODUCTIVITY'].replace("\\","/") + "/Maya"
     if Dir not in sys.path:
         sys.path.append(Dir)
     try: reload(BatchPlacer)
