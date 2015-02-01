@@ -21,3 +21,8 @@ To use Productivity Plugin to its max potential, you will need to install these 
 ### Maya
   1. Make sure you ran the "Setup 3D Package Scripts.bat" file as mentioned above.
   2. Shove [this code](Maya/BatchPlacerShelfButton.py) into a Maya shelf button. This button, when clicked, will batch place selected objects into UE4.
+  
+### Max (Must be able to run Python, so 2014+)
+  1. Make sure you ran the "Setup 3D Package Scripts.bat" file as mentioned above.
+  2. Copy [LoadBatchPlacer.ms](Max/LoadBatchPlacer.ms) to your 3DS Max "Additional Startup Scripts" directory. This can be found by going to Customize->Configure System Paths
+  3. Use Customize->Customize Interface to assign the "Batch place selected objects in UE4" command under the "Productivity" category to anywhere on your interface or keyboard shortcuts.
