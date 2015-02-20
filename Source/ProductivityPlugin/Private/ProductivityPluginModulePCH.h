@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Core.h"
+#include "Engine.h"
 #include "Networking.h"
 #include "SlateBasics.h"
 #include "SlateCore.h"

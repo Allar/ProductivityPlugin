@@ -15,8 +15,7 @@
 	[
 		{
 			"Name" : "ProductivityPlugin",
-			"Type" : "Runtime",
-			"LoadingPhase": "PostEngineInit"
+			"Type" : "Runtime"
 		}
 	]
 }

@@ -1,5 +1,6 @@
 #include "ProductivityPluginModulePCH.h"
 
+#if WITH_EDITOR
 #include "ISettingsModule.h"
 #include "ISettingsSection.h"
 
@@ -12,6 +13,7 @@
 #include "ILayers.h"
 #include "LevelEditor.h"
 #include "ScopedTransaction.h"
+#endif
 
 #include "ProductivityTypes.h"
 
@@ -38,9 +40,10 @@ TStatId FProductivityTickObject::GetStatId() const
 
 /** Module **/
 FProductivityPluginModule::FProductivityPluginModule()
+#if WITH_EDITOR
 	: TickObject(nullptr),
 	Listener(nullptr)
-
+#endif
 {
 	
 }
@@ -52,10 +55,12 @@ void FProductivityPluginModule::StartupModule()
 	FProductivityPluginStyle::Initialize();
 	//FProductivityPluginStyle::ReloadTextures();
 
+#if WITH_EDITOR
+
 	FProductivityPluginCommands::Register();
 	FProductivityPluginCommands::BindGlobalStaticToInstancedActions();
 
-#if WITH_EDITOR
+
 
 	// register settings
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
@@ -81,28 +86,30 @@ void FProductivityPluginModule::StartupModule()
 		FExecuteAction::CreateRaw(this, &FProductivityPluginModule::StaticToInstancedClicked),
 		FCanExecuteAction());
 		
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	
+	FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor");
+	if (LevelEditorModule != nullptr)
 	{
-		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
-		MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddMenuExtension));
+		{
+			TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+			MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddMenuExtension));
 
-		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
-	}
-	
-	{
-		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-		ToolbarExtender->AddToolBarExtension("Game", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddToolbarExtension));
-		
-		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
-	}
+			LevelEditorModule->GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+		}
 
-	if (SupportsProductivityServer())
-	{
-		Listener = new FTcpListener(PRODUCTIVITY_SERVER_DEFAULT_EDITOR_ENDPOINT);
-		Listener->OnConnectionAccepted().BindRaw(this, &FProductivityPluginModule::HandleListenerConnectionAccepted);
+		{
+			TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+			ToolbarExtender->AddToolBarExtension("Game", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FProductivityPluginModule::AddToolbarExtension));
 
-		TickObject = new FProductivityTickObject(this);
+			LevelEditorModule->GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+		}
+
+		if (SupportsProductivityServer())
+		{
+			Listener = new FTcpListener(PRODUCTIVITY_SERVER_DEFAULT_EDITOR_ENDPOINT);
+			Listener->OnConnectionAccepted().BindRaw(this, &FProductivityPluginModule::HandleListenerConnectionAccepted);
+
+			TickObject = new FProductivityTickObject(this);
+		}
 	}
 
 #endif
@@ -115,6 +122,8 @@ void FProductivityPluginModule::ShutdownModule()
 	// we call this function before unloading the module.
 	
 	FProductivityPluginStyle::Shutdown();
+
+#if WITH_EDITOR
 
 	FProductivityPluginCommands::Unregister();
 
@@ -148,11 +157,11 @@ void FProductivityPluginModule::ShutdownModule()
 
 	delete TickObject;
 	TickObject = NULL;
+#endif
 }
-
+#if WITH_EDITOR
 void FProductivityPluginModule::StaticToInstancedClicked()
 {
-#if WITH_EDITOR
 
 	const FScopedTransaction Transaction(LOCTEXT("StaticToInstanced", "Convert Statics to Instances and back"));
 
@@ -298,9 +307,11 @@ void FProductivityPluginModule::StaticToInstancedClicked()
 
 		// Remove all references to destroyed actors once at the end, instead of once for each Actor destroyed..
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
-#endif
 	}
 }
+#endif
+
+#if WITH_EDITOR
 
 void FProductivityPluginModule::AddMenuExtension(FMenuBuilder& builder)
 {
@@ -315,6 +326,8 @@ void FProductivityPluginModule::AddMenuExtension(FMenuBuilder& builder)
 		//	NAME_None);
 	}
 }
+
+
 
 void FProductivityPluginModule::AddToolbarExtension(FToolBarBuilder &builder)
 {
@@ -341,6 +354,8 @@ void FProductivityPluginModule::AddToolbarExtension(FToolBarBuilder &builder)
 
 	builder.EndSection();
 }
+
+#endif
 
 bool FProductivityPluginModule::SupportsProductivityServer() const
 {
@@ -369,11 +384,13 @@ bool FProductivityPluginModule::HandleSettingsSaved()
 	return true;
 }
 
+#if WITH_EDITOR
 bool FProductivityPluginModule::HandleListenerConnectionAccepted(class FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint)
 {
 	PendingClients.Enqueue(ClientSocket);
 	return true;
 }
+#endif
 
 void FProductivityPluginModule::Tick(float DeltaTime)
 {
@@ -421,6 +438,8 @@ void FProductivityPluginModule::Tick(float DeltaTime)
 #endif
 }
 
+#if WITH_EDITOR
+
 void FProductivityPluginModule::ProcessMessage(const FProductivityNetworkMessage& Message)
 {
 	ProcessAddStaticMesh(Message);
@@ -458,6 +477,7 @@ void FProductivityPluginModule::ProcessAddStaticMesh(const FProductivityNetworkM
 		}
 	}
 }
+#endif
 
 DEFINE_LOG_CATEGORY(LogProductivityPlugin)
 
