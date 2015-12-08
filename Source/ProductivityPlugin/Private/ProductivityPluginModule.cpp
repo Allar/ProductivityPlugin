@@ -421,7 +421,7 @@ void FProductivityPluginModule::Tick(float DeltaTime)
 		while (Client->HasPendingData(DataSize))
 		{
 			FArrayReaderPtr Datagram = MakeShareable(new FArrayReader(true));
-			Datagram->Init(FMath::Min(DataSize, 1024u));
+			Datagram->SetNumUninitialized(FMath::Min(DataSize, 1024u));
 			int32 BytesRead = 0;
 			if (Client->Recv(Datagram->GetData(), Datagram->Num(), BytesRead))
 			{

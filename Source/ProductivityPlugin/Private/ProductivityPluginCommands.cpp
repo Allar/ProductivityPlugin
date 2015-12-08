@@ -10,11 +10,16 @@ FProductivityPluginCommands::FProductivityPluginCommands() : TCommands<FProducti
 }
 
 #if WITH_EDITOR
+
+#define LOCTEXT_NAMESPACE ""
+
 void FProductivityPluginCommands::RegisterCommands()
 {
 	UI_COMMAND(StaticToInstanced, "Statics<>Instanced", "Batch converts all selected static mesh actors to instanced meshes and vice versa.", EUserInterfaceActionType::Button, FInputGesture());
 	UI_COMMAND(StaticToInstancedIsResultGrouped, "Group Static Meshes", "If checked, when static meshes are created from an instanced mesh wrapper, they will be grouped.", EUserInterfaceActionType::ToggleButton, FInputGesture());
 }
+
+#undef LOCTEXT_NAMESPACE
 
 TSharedRef< SWidget > FProductivityPluginCommands::GenerateStaticToInstancedMenuContent(TSharedRef<FUICommandList> InCommandList)
 {
