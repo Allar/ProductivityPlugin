@@ -36,7 +36,7 @@ class BatchPlacer():
 			mt.getScale(scaleVec, om.MSpace.kWorld)
 			scale = [om.MScriptUtil.getDoubleArrayItem(scaleVec, i) for i in range(0,3)]
 			if (cmds.upAxis(q=True,axis=True) == "y"):
-				self.SendUnrealBatchPlaceData(sock, unicodedata.normalize('NFKD', node.name()).encode('ascii','ignore'), str(loc.x), str(loc.z), str(loc.y), str(math.degrees(rot.x)), str(math.degrees(rot.z)), str(math.degrees(rot.y)), str(scale[0]), str(scale[2]), str(scale[1]))
+				self.SendUnrealBatchPlaceData(sock, unicodedata.normalize('NFKD', node.name()).encode('ascii','ignore'), str(loc.x), str(loc.z), str(loc.y), str(math.degrees(rot.x)), str(math.degrees(rot.z)), str(math.degrees(rot.y)*-1), str(scale[0]), str(scale[2]), str(scale[1]))
 			else:
 				self.SendUnrealBatchPlaceData(sock, unicodedata.normalize('NFKD', node.name()).encode('ascii','ignore'), str(loc.x), str(loc.y), str(loc.z), str(math.degrees(rot.x)), str(math.degrees(rot.y)), str(math.degrees(rot.z)), str(scale[0]), str(scale[1]), str(scale[2]))
 			print "Sent mesh " + node.name()
